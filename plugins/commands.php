@@ -118,20 +118,19 @@ elseif ($v->chat_type == 'private') {
 	}
 	# Search for smartphones
 	elseif ($v->text && !$v->query_data) {
-		$r = $gsm->searchDevice($v->text);
+		$r = $gsm->searchDevice($v->text, 100);
 		if ($r['status'] !== 'success') {
 			$bot->sendMessage($v->chat_id, '⚠️ Service offline!');
 			die;
 		}
-		if (isset($r['data'][0])) {
-			$data = $r['data'];
+		if (!empty($r['data'])) {
 			$mcount = 0;
 			if (isset($r['data'][5])) {
 				$formenu = 2;
 			} else {
 				$formenu = 1;
 			}
-			foreach($data as $sp) {
+			foreach($r['data'] as $sp) {
 				if (isset($buttons[$mcount]) && count($buttons[$mcount]) >= $formenu) $mcount += 1;
 				$buttons[$mcount][] = $bot->createInlineButton($sp['title'], 'device_' . $sp['slug']);
             }
@@ -149,44 +148,46 @@ elseif ($v->chat_type == 'private') {
 # Inline commands
 elseif ($v->update['inline_query']) {
 	$results = [];
+	if (!$v->offset) $v->offset = 0;
+	$limit = 50;
 	$sw_text = $tr->getTranslation('typeDeviceName');
 	$sw_arg = 'inline'; // The message the bot receive is '/start inline'
 	if ($v->query) {
-		$r = $gsm->searchDevice($v->query);
-		if (isset($r['data'][0])) {
-			$data = $r['data'];
+		$r = $gsm->searchDevice($v->query, $limit, $v->offset);
+		if (!empty($r['data'])) {
 			$t = 'Loading...';
 			$buttons[][] = $bot->createInlineButton('🔄', 'device_' . $sp['slug']);
-			foreach($data as $sp) {
-				if (count($results) < 50) {
-					$d = $r[$num]; 
-					$img = "https://fdn2.gsmarena.com/vv/bigpic/" . str_replace('_', '-', explode("-", $sp['slug'], 2)[0]) . ".jpg";
-					$menu = [];
+			foreach($r['data'] as $sp) {
+				$d = $r[$num];
+				$img = "https://fdn2.gsmarena.com/vv/bigpic/" . str_replace('_', '-', explode("-", $sp['slug'], 2)[0]) . ".jpg";
+				$menu = [];
+				if (@getimagesize($img)) {
+				} else {
+					$img = "https://fdn2.gsmarena.com/vv/pics/" . explode("_", $sp['slug'], 2)[0] . "/" . str_replace("_", "-", explode("-", $sp['slug'], 2)[0]) . ".jpg";
 					if (@getimagesize($img)) {
 					} else {
-						$img = "https://fdn2.gsmarena.com/vv/pics/" . explode("_", $sp['slug'], 2)[0] . "/" . str_replace("_", "-", explode("-", $sp['slug'], 2)[0]) . ".jpg";
-						if (@getimagesize($img)) {
-						} else {
-							$img = "https://telegra.ph/file/3d0d201b23992330189d2.jpg";
-						}
+						$img = "https://telegra.ph/file/3d0d201b23992330189d2.jpg";
 					}
-					$results[] = $bot->createInlineArticle(
-						$sp['slug'],
-						$sp['title'],
-						'',
-						$bot->createTextInput($t),
-						$buttons,
-						0, 0,
-						$img
-					);
 				}
+				$results[] = $bot->createInlineArticle(
+					$sp['slug'],
+					$sp['title'],
+					'',
+					$bot->createTextInput($t),
+					$buttons,
+					0, 0,
+					$img
+				);
 			}
-   }
+			$next = (count($r['data']) == $limit) ? $v->offset + 1 : false;
+		} else {
+			$next = false;
+		}
 	}
 	if (!empty($v->query) && $r['status'] !== 'success') {
 		$sw_text = '⚠️ Try me in private chat!';
 	}
-	$bot->answerIQ($v->id, $results, $sw_text, $sw_arg);
+	$bot->answerIQ($v->id, $results, $sw_text, $sw_arg, $next);
 }
 
 # Send Inline results
