@@ -225,4 +225,10 @@ elseif ($v->update['chosen_inline_result']) {
 	$bot->editText($v->chat_id, $v->message_id, $linkph . $text, $buttons);
 }
 
+# Unsupported chats (Auto-leave)
+elseif (in_array($v->chat_type, ['group', 'supergroup', 'channels'])) {
+	$bot->leave($v->chat_id);
+	die;
+}
+
 ?>
